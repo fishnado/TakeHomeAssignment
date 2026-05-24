@@ -252,6 +252,34 @@ a:hover { color: var(--accent-hover); }
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.btn-copy {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.2rem 0.65rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--accent);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background 0.15s, color 0.15s;
+}
+
+.btn-copy:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-copy:disabled {
+    background: var(--success-bg);
+    color: #065f46;
+    border-color: #6ee7b7;
+    cursor: default;
+}
+
 /* Status badges */
 .badge {
     display: inline-block;

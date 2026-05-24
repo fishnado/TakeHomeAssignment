@@ -58,7 +58,8 @@ render_header('Share · ' . $doc['title'], $staff);
 <?php if ($created_token): ?>
     <div class="banner banner-success">
         Share link ready:
-        <code>http://<?= h($_SERVER['HTTP_HOST']) ?>/view.php?token=<?= h($created_token) ?></code>
+        <code id="share-link-code">http://<?= h($_SERVER['HTTP_HOST']) ?>/view.php?token=<?= h($created_token) ?></code>
+        <button class="btn-copy" onclick="copyShareLink(this)" type="button">Copy</button>
     </div>
 <?php endif ?>
 
@@ -72,5 +73,19 @@ render_header('Share · ' . $doc['title'], $staff);
         <button type="submit" class="btn">Generate link</button>
     </form>
 </section>
+
+<script>
+function copyShareLink(btn) {
+    var text = document.getElementById('share-link-code').textContent;
+    navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Copied!';
+        btn.disabled = true;
+        setTimeout(function () {
+            btn.textContent = 'Copy';
+            btn.disabled = false;
+        }, 2000);
+    });
+}
+</script>
 
 <?php render_footer(); ?>
