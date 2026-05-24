@@ -38,35 +38,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'publish_at' => $publish_at,
         ]);
 
-        index_document($docId, $title);
-
         header('Location: /admin.php?created=' . $docId);
         exit;
     }
 }
 
-// Search via the inverted index when a query is present.
-// Each space-separated word is treated as an independent edge n-gram lookup;
-// results must match ALL words (AND logic).
+// Case-insensitive prefix search on title.
+// LOWER() on both sides ensures consistent matching regardless of how the
+// title was entered. '%' suffix means the query matches anywhere inside
+// the title, so "packet" finds "Welcome Packet" and a full paste works too.
 $query = trim($_GET['q'] ?? '');
 if ($query !== '') {
-    $words      = preg_split('/\s+/', strtolower($query), -1, PREG_SPLIT_NO_EMPTY);
-    $wordCount  = count($words);
-    $placeholders = implode(',', array_fill(0, $wordCount, '?'));
-    $stmt = db()->prepare("
+    $stmt = db()->prepare('
         SELECT d.*, s.name AS creator_name
         FROM documents d
         JOIN staff s ON s.id = d.created_by
-        WHERE d.id IN (
-            SELECT document_id
-            FROM document_search_tokens
-            WHERE token IN ($placeholders)
-            GROUP BY document_id
-            HAVING COUNT(DISTINCT token) >= ?
-        )
+        WHERE LOWER(d.title) LIKE LOWER(:q)
         ORDER BY d.created_at DESC
-    ");
-    $stmt->execute(array_merge($words, [$wordCount]));
+    ');
+    $stmt->execute([':q' => '%' . $query . '%']);
     $docs = $stmt->fetchAll();
 } else {
     $docs = db()->query('
