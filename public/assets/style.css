@@ -252,6 +252,34 @@ a:hover { color: var(--accent-hover); }
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Status badges */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.badge-live {
+    background: var(--success-bg);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.badge-scheduled {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+/* Field hint text */
+.field-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
 table.data {
     width: 100%;
     border-collapse: collapse;

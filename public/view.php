@@ -27,6 +27,20 @@ if (!$doc) {
     exit;
 }
 
+// Scheduled publishing: block access until publish_at has passed.
+if (!empty($doc['publish_at']) && $doc['publish_at'] > date('Y-m-d H:i:s')) {
+    http_response_code(403);
+    render_header('Not yet available');
+    ?>
+    <div class="centered-message">
+        <h1>Not yet available</h1>
+        <p>This document isn't available yet. Please check back later.</p>
+    </div>
+    <?php
+    render_footer();
+    exit;
+}
+
 render_header($doc['title']);
 ?>
 
