@@ -113,8 +113,11 @@ render_header('Admin', $staff);
                         <td><?= h($d['creator_name']) ?></td>
                         <td><?= h($d['created_at']) ?></td>
                         <td>
-                            <?php if (!empty($d['publish_at']) && $d['publish_at'] > date('Y-m-d H:i:s')): ?>
-                                <span class="badge badge-scheduled">Scheduled: <?= h($d['publish_at']) ?></span>
+                            <?php if (!empty($d['publish_at'])): ?>
+                                <span class="badge"
+                                      data-publish-at="<?= h($d['publish_at']) ?>Z">
+                                    <!-- updated live by JS every second -->
+                                </span>
                             <?php else: ?>
                                 <span class="badge badge-live">Live</span>
                             <?php endif ?>
@@ -128,17 +131,41 @@ render_header('Admin', $staff);
 </section>
 
 <script>
-// Live clock — updates every second using the browser's local timezone.
+// Live clock + live status badges — both tick every second.
 (function () {
     var clockEl = document.getElementById('local-clock');
     var tzEl    = document.getElementById('local-tz');
     var tz      = Intl.DateTimeFormat().resolvedOptions().timeZone;
     tzEl.textContent = tz;
 
+    function updateBadges() {
+        var now = Date.now();
+        document.querySelectorAll('[data-publish-at]').forEach(function (el) {
+            var publishAt = new Date(el.dataset.publishAt).getTime();
+            if (now >= publishAt) {
+                el.className     = 'badge badge-live';
+                el.textContent   = 'Live';
+                el.removeAttribute('data-publish-at'); // stop checking once live
+            } else {
+                el.className   = 'badge badge-scheduled';
+                var secsLeft   = Math.ceil((publishAt - now) / 1000);
+                var hh = Math.floor(secsLeft / 3600);
+                var mm = Math.floor((secsLeft % 3600) / 60);
+                var ss = secsLeft % 60;
+                var countdown = hh > 0
+                    ? hh + 'h ' + mm + 'm'
+                    : mm > 0 ? mm + 'm ' + ss + 's'
+                    : ss + 's';
+                el.textContent = 'Live in ' + countdown;
+            }
+        });
+    }
+
     function tick() {
         clockEl.textContent = new Date().toLocaleTimeString([], {
             hour: '2-digit', minute: '2-digit', second: '2-digit'
         });
+        updateBadges();
     }
     tick();
     setInterval(tick, 1000);
