@@ -38,17 +38,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'publish_at' => $publish_at,
         ]);
 
+        index_document($docId, $title);
+
         header('Location: /admin.php?created=' . $docId);
         exit;
     }
 }
 
-$docs = db()->query('
-    SELECT d.*, s.name AS creator_name
-    FROM documents d
-    JOIN staff s ON s.id = d.created_by
-    ORDER BY d.created_at DESC
-')->fetchAll();
+// Search via the inverted index when a query is present.
+// Each space-separated word is treated as an independent edge n-gram lookup;
+// results must match ALL words (AND logic).
+$query = trim($_GET['q'] ?? '');
+if ($query !== '') {
+    $words      = preg_split('/\s+/', strtolower($query), -1, PREG_SPLIT_NO_EMPTY);
+    $wordCount  = count($words);
+    $placeholders = implode(',', array_fill(0, $wordCount, '?'));
+    $stmt = db()->prepare("
+        SELECT d.*, s.name AS creator_name
+        FROM documents d
+        JOIN staff s ON s.id = d.created_by
+        WHERE d.id IN (
+            SELECT document_id
+            FROM document_search_tokens
+            WHERE token IN ($placeholders)
+            GROUP BY document_id
+            HAVING COUNT(DISTINCT token) >= ?
+        )
+        ORDER BY d.created_at DESC
+    ");
+    $stmt->execute(array_merge($words, [$wordCount]));
+    $docs = $stmt->fetchAll();
+} else {
+    $docs = db()->query('
+        SELECT d.*, s.name AS creator_name
+        FROM documents d
+        JOIN staff s ON s.id = d.created_by
+        ORDER BY d.created_at DESC
+    ')->fetchAll();
+}
 
 render_header('Admin', $staff);
 ?>
@@ -91,6 +118,23 @@ render_header('Admin', $staff);
 
 <section class="card">
     <h2 class="card-title">Documents</h2>
+
+    <form method="get" action="/admin.php" class="search-row">
+        <input type="search" name="q" id="q" placeholder="Search by title…"
+               value="<?= h($query) ?>" autocomplete="off">
+        <button type="submit" class="btn">Search</button>
+        <?php if ($query !== ''): ?>
+            <a href="/admin.php" class="btn-link">Clear</a>
+        <?php endif ?>
+    </form>
+
+    <?php if ($query !== ''): ?>
+        <p class="search-meta">
+            <?= count($docs) ?> result<?= count($docs) !== 1 ? 's' : '' ?>
+            for <strong><?= h($query) ?></strong>
+        </p>
+    <?php endif ?>
+
     <?php if (empty($docs)): ?>
         <p class="empty">No documents yet.</p>
     <?php else: ?>
