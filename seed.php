@@ -39,6 +39,9 @@ $stmt = $pdo->prepare('
 ');
 $stmt->execute([$docId, $token, 'recipient@example.com']);
 
+// Index the seeded document so it appears in search results immediately.
+index_document($docId, 'Welcome Packet');
+
 echo "Seeded db.sqlite.\n";
 echo "Admin:        http://localhost:8000/admin.php\n";
 echo "Sample share: http://localhost:8000/view.php?token={$token}\n";
