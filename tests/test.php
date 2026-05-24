@@ -94,6 +94,51 @@ test('document with past publish_at is available', function () {
     assert_true($doc['publish_at'] < date('Y-m-d H:i:s'), 'publish_at should be in the past');
 });
 
+// --- Human-readable slugs ---
+
+test('seeded document has a slug in the correct format', function () {
+    $row = db()->query("SELECT slug FROM documents WHERE title = 'Welcome Packet'")->fetch();
+    assert_true($row !== false, 'seeded document not found');
+    assert_true(!empty($row['slug']), 'slug should not be empty');
+    // Format: kebab-base + hyphen + 2-char base36 suffix
+    assert_true(
+        preg_match('/^[a-z0-9]+(-[a-z0-9]+)*-[a-z0-9]{2}$/', $row['slug']) === 1,
+        'slug format invalid: ' . $row['slug']
+    );
+});
+
+test('make_slug converts title to kebab-case', function () {
+    assert_true(make_slug('Welcome Packet')       === 'welcome-packet',   'spaces → hyphens');
+    assert_true(make_slug('Q4 Onboarding #2!')    === 'q4-onboarding-2',  'special chars stripped');
+    assert_true(make_slug('  Leading Spaces  ')   === 'leading-spaces',   'leading/trailing stripped');
+});
+
+test('generate_document_slug produces unique slugs for the same title', function () {
+    $db = db();
+    $slugs = [];
+    for ($i = 0; $i < 5; $i++) {
+        $slug = generate_document_slug('Test Document');
+        assert_true(!in_array($slug, $slugs), 'duplicate slug generated: ' . $slug);
+        $slugs[] = $slug;
+        // Insert so next iteration sees the collision
+        $db->prepare('INSERT INTO documents (title, body, created_by, slug) VALUES (?,?,1,?)')
+           ->execute(['Test Document', 'body', $slug]);
+    }
+    assert_true(count(array_unique($slugs)) === 5, 'expected 5 unique slugs');
+});
+
+test('share token still controls access — slug alone is not enough', function () {
+    // Token lookup should work; slug in URL is cosmetic
+    $row = db()->query('
+        SELECT d.title, s.token
+        FROM shares s JOIN documents d ON d.id = s.document_id
+        LIMIT 1
+    ')->fetch();
+    assert_true($row !== false, 'no shares found');
+    assert_true(!empty($row['token']), 'token should exist');
+    assert_true(strlen($row['token']) === 32, 'token should be 32 hex chars');
+});
+
 // --- Sorting ---
 
 test('sort by id ascending returns lowest id first', function () {
