@@ -10,6 +10,13 @@ if (file_exists($dbPath)) {
 $pdo = db();
 $pdo->exec(file_get_contents(__DIR__ . '/schema.sql'));
 
+// Apply migrations in order on top of the base schema.
+// Since seed.php always starts from a clean DB, every migration replays
+// on every run — no need to track which have been applied.
+foreach (glob(__DIR__ . '/migrations/*.sql') as $file) {
+    $pdo->exec(file_get_contents($file));
+}
+
 $pdo->exec("
     INSERT INTO staff (email, name) VALUES
         ('freddy@folio.example', 'Freddy Folio')
