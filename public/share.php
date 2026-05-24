@@ -40,6 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'recipient_email' => $email,
         ]);
         $created_token = $token;
+        $created_url   = 'http://' . $_SERVER['HTTP_HOST']
+                       . '/share/' . ($doc['slug'] ?? $doc['id'])
+                       . '/' . $token;
     }
 }
 
@@ -58,7 +61,7 @@ render_header('Share · ' . $doc['title'], $staff);
 <?php if ($created_token): ?>
     <div class="banner banner-success">
         Share link ready:
-        <code id="share-link-code">http://<?= h($_SERVER['HTTP_HOST']) ?>/view.php?token=<?= h($created_token) ?></code>
+        <code id="share-link-code"><?= h($created_url) ?></code>
         <button class="btn-copy" onclick="copyShareLink(this)" type="button">Copy</button>
     </div>
 <?php endif ?>

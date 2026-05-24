@@ -26,16 +26,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($title === '' || $body === '') {
         $error = 'Title and body are required.';
     } else {
+        $slug = generate_document_slug($title);
+
         $stmt = db()->prepare('
-            INSERT INTO documents (title, body, created_by, publish_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO documents (title, body, created_by, publish_at, slug)
+            VALUES (?, ?, ?, ?, ?)
         ');
-        $stmt->execute([$title, $body, $staff['id'], $publish_at]);
+        $stmt->execute([$title, $body, $staff['id'], $publish_at, $slug]);
         $docId = (int) db()->lastInsertId();
 
         audit_log('create', 'document', $docId, [
             'title'      => $title,
             'publish_at' => $publish_at,
+            'slug'       => $slug,
         ]);
 
         header('Location: /admin.php?created=' . $docId);
@@ -168,7 +171,7 @@ render_header('Admin', $staff);
             <tbody>
                 <?php foreach ($docs as $d): ?>
                     <tr>
-                        <td class="id">#<?= (int) $d['id'] ?></td>
+                        <td class="id"><?= h($d['slug'] ?? '#' . (int) $d['id']) ?></td>
                         <td><?= h($d['title']) ?></td>
                         <td><?= h($d['creator_name']) ?></td>
                         <td><?= h($d['created_at']) ?></td>
