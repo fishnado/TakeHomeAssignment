@@ -344,6 +344,13 @@ a:hover { color: var(--accent-hover); }
     border: 1px solid #fcd34d;
 }
 
+/* Row action links */
+.row-actions {
+    display: flex;
+    gap: 0.75rem;
+    white-space: nowrap;
+}
+
 /* Field hint text */
 .field-hint {
     margin: 0.25rem 0 0;

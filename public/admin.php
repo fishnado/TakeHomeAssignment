@@ -185,7 +185,10 @@ render_header('Admin', $staff);
                                 <span class="badge badge-live">Live</span>
                             <?php endif ?>
                         </td>
-                        <td><a href="/share.php?doc=<?= (int) $d['id'] ?>" class="btn-link">Create share →</a></td>
+                        <td class="row-actions">
+                            <a href="/preview.php?doc=<?= (int) $d['id'] ?>" class="btn-link">Preview</a>
+                            <a href="/share.php?doc=<?= (int) $d['id'] ?>"   class="btn-link">Share →</a>
+                        </td>
                     </tr>
                 <?php endforeach ?>
             </tbody>
