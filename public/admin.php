@@ -10,10 +10,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $body  = trim($_POST['body'] ?? '');
     $publish_at_raw = trim($_POST['publish_at'] ?? '');
+    $publish_at_utc = trim($_POST['publish_at_utc'] ?? '');
 
-    // datetime-local gives "2026-05-24T14:30"; convert to SQLite-friendly "2026-05-24 14:30:00"
+    // JS submits publish_at_utc as a UTC ISO string (e.g. "2026-05-24T15:59:00.000Z").
+    // Fall back to raw datetime-local interpreted as server timezone if JS is unavailable.
     $publish_at = null;
-    if ($publish_at_raw !== '') {
+    if ($publish_at_utc !== '') {
+        $ts = strtotime($publish_at_utc);
+        $publish_at = $ts !== false ? gmdate('Y-m-d H:i:s', $ts) : null;
+    } elseif ($publish_at_raw !== '') {
         $ts = strtotime($publish_at_raw);
         $publish_at = $ts !== false ? date('Y-m-d H:i:s', $ts) : null;
     }
@@ -73,10 +78,11 @@ render_header('Admin', $staff);
         <div class="form-field">
             <label for="publish_at">Publish at (optional)</label>
             <input type="datetime-local" id="publish_at" name="publish_at">
+            <input type="hidden" id="publish_at_utc" name="publish_at_utc">
             <p class="field-hint">
                 Leave blank to publish immediately.
-                Times are in <strong><?= h(date_default_timezone_get()) ?></strong>
-                — server time is currently <strong><?= h(date('g:i A')) ?></strong>.
+                Your local time: <strong id="local-clock">—</strong>
+                (<span id="local-tz">detecting&hellip;</span>)
             </p>
         </div>
         <button type="submit" class="btn">Create document</button>
@@ -120,5 +126,36 @@ render_header('Admin', $staff);
         </table>
     <?php endif ?>
 </section>
+
+<script>
+// Live clock — updates every second using the browser's local timezone.
+(function () {
+    var clockEl = document.getElementById('local-clock');
+    var tzEl    = document.getElementById('local-tz');
+    var tz      = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    tzEl.textContent = tz;
+
+    function tick() {
+        clockEl.textContent = new Date().toLocaleTimeString([], {
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+    }
+    tick();
+    setInterval(tick, 1000);
+
+    // On submit, convert datetime-local value from local time → UTC ISO string.
+    // PHP reads publish_at_utc and stores it in UTC so comparisons are timezone-safe.
+    var form       = document.querySelector('form');
+    var dtInput    = document.getElementById('publish_at');
+    var utcInput   = document.getElementById('publish_at_utc');
+
+    form.addEventListener('submit', function () {
+        if (dtInput.value) {
+            // new Date(dateTimeLocalString) interprets the value as local time.
+            utcInput.value = new Date(dtInput.value).toISOString();
+        }
+    });
+}());
+</script>
 
 <?php render_footer(); ?>

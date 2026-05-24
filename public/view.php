@@ -28,7 +28,8 @@ if (!$doc) {
 }
 
 // Scheduled publishing: block access until publish_at has passed.
-if (!empty($doc['publish_at']) && $doc['publish_at'] > date('Y-m-d H:i:s')) {
+// publish_at is stored in UTC (set by JS on the admin form), so compare with gmdate().
+if (!empty($doc['publish_at']) && $doc['publish_at'] > gmdate('Y-m-d H:i:s')) {
     http_response_code(403);
     render_header('Not yet available');
     ?>
