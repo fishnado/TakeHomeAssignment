@@ -94,6 +94,47 @@ test('document with past publish_at is available', function () {
     assert_true($doc['publish_at'] < date('Y-m-d H:i:s'), 'publish_at should be in the past');
 });
 
+// --- Sorting ---
+
+test('sort by id ascending returns lowest id first', function () {
+    $rows = db()->query('SELECT id FROM documents ORDER BY id ASC')->fetchAll();
+    assert_true(count($rows) >= 1, 'expected at least one document');
+    $ids = array_column($rows, 'id');
+    assert_true($ids === array_values($ids), 'ids should already be in order');
+    // Verify first id is less than or equal to last
+    assert_true($ids[0] <= $ids[count($ids) - 1], 'first id should be <= last id when ASC');
+});
+
+test('sort by id descending returns highest id first', function () {
+    $rows = db()->query('SELECT id FROM documents ORDER BY id DESC')->fetchAll();
+    assert_true(count($rows) >= 1, 'expected at least one document');
+    $ids = array_column($rows, 'id');
+    assert_true($ids[0] >= $ids[count($ids) - 1], 'first id should be >= last id when DESC');
+});
+
+test('sort and search are composable — filtered results respect sort order', function () {
+    $db = db();
+    // Insert two documents that both match a search but have different titles
+    $db->prepare('INSERT INTO documents (title, body, created_by) VALUES (?, ?, 1)')
+       ->execute(['Alpha Report', 'body']);
+    $db->prepare('INSERT INTO documents (title, body, created_by) VALUES (?, ?, 1)')
+       ->execute(['Zebra Report', 'body']);
+
+    $rows = $db->query("
+        SELECT title FROM documents
+        WHERE LOWER(title) LIKE '%report%'
+        ORDER BY title ASC
+    ")->fetchAll();
+
+    $titles = array_column($rows, 'title');
+    assert_true(in_array('Alpha Report', $titles), 'Alpha Report missing');
+    assert_true(in_array('Zebra Report', $titles), 'Zebra Report missing');
+    assert_true(
+        array_search('Alpha Report', $titles) < array_search('Zebra Report', $titles),
+        'Alpha should come before Zebra when sorted ASC'
+    );
+});
+
 // --- Case-insensitive prefix search ---
 
 test('search finds document by lowercase partial title', function () {

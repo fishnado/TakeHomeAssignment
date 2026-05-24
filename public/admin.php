@@ -43,28 +43,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Case-insensitive prefix search on title.
-// LOWER() on both sides ensures consistent matching regardless of how the
-// title was entered. '%' suffix means the query matches anywhere inside
-// the title, so "packet" finds "Welcome Packet" and a full paste works too.
+// Sorting — whitelist columns to prevent SQL injection.
+// Default: newest first (created_at DESC).
+$allowed_sorts = [
+    'id'      => 'd.id',
+    'title'   => 'd.title',
+    'creator' => 's.name',
+    'created' => 'd.created_at',
+    'status'  => 'd.publish_at',
+];
+$sort     = $_GET['sort'] ?? 'created';
+$sort_col = $allowed_sorts[$sort] ?? 'd.created_at';
+$dir      = strtoupper($_GET['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+
+// Helper: build a column header link that preserves the search query and
+// toggles direction when the same column is clicked again.
+function col_link(string $label, string $col, string $current_sort,
+                  string $current_dir, string $q): string {
+    $next_dir = ($current_sort === $col && $current_dir === 'ASC') ? 'DESC' : 'ASC';
+    $arrow    = '';
+    if ($current_sort === $col) {
+        $arrow = $current_dir === 'ASC' ? ' ↑' : ' ↓';
+    }
+    $params = http_build_query(array_filter(
+        ['q' => $q, 'sort' => $col, 'dir' => $next_dir],
+        fn($v) => $v !== ''
+    ));
+    return '<a href="/admin.php?' . $params . '" class="sort-link">'
+         . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . $arrow . '</a>';
+}
+
+// Case-insensitive substring search + sort, fully composable.
 $query = trim($_GET['q'] ?? '');
+$where = $query !== '' ? 'WHERE LOWER(d.title) LIKE LOWER(:q)' : '';
+
+$sql = "
+    SELECT d.*, s.name AS creator_name
+    FROM documents d
+    JOIN staff s ON s.id = d.created_by
+    {$where}
+    ORDER BY {$sort_col} {$dir}
+";
+
 if ($query !== '') {
-    $stmt = db()->prepare('
-        SELECT d.*, s.name AS creator_name
-        FROM documents d
-        JOIN staff s ON s.id = d.created_by
-        WHERE LOWER(d.title) LIKE LOWER(:q)
-        ORDER BY d.created_at DESC
-    ');
+    $stmt = db()->prepare($sql);
     $stmt->execute([':q' => '%' . $query . '%']);
     $docs = $stmt->fetchAll();
 } else {
-    $docs = db()->query('
-        SELECT d.*, s.name AS creator_name
-        FROM documents d
-        JOIN staff s ON s.id = d.created_by
-        ORDER BY d.created_at DESC
-    ')->fetchAll();
+    $docs = db()->query($sql)->fetchAll();
 }
 
 render_header('Admin', $staff);
@@ -131,11 +157,11 @@ render_header('Admin', $staff);
         <table class="data">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Creator</th>
-                    <th>Created</th>
-                    <th>Status</th>
+                    <th><?= col_link('ID',      'id',      $sort, $dir, $query) ?></th>
+                    <th><?= col_link('Title',   'title',   $sort, $dir, $query) ?></th>
+                    <th><?= col_link('Creator', 'creator', $sort, $dir, $query) ?></th>
+                    <th><?= col_link('Created', 'created', $sort, $dir, $query) ?></th>
+                    <th><?= col_link('Status',  'status',  $sort, $dir, $query) ?></th>
                     <th></th>
                 </tr>
             </thead>
