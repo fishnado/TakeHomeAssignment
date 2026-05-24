@@ -73,7 +73,11 @@ render_header('Admin', $staff);
         <div class="form-field">
             <label for="publish_at">Publish at (optional)</label>
             <input type="datetime-local" id="publish_at" name="publish_at">
-            <p class="field-hint">Leave blank to publish immediately.</p>
+            <p class="field-hint">
+                Leave blank to publish immediately.
+                Times are in <strong><?= h(date_default_timezone_get()) ?></strong>
+                — server time is currently <strong><?= h(date('g:i A')) ?></strong>.
+            </p>
         </div>
         <button type="submit" class="btn">Create document</button>
     </form>
