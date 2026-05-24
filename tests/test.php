@@ -94,5 +94,63 @@ test('document with past publish_at is available', function () {
     assert_true($doc['publish_at'] < date('Y-m-d H:i:s'), 'publish_at should be in the past');
 });
 
+// --- Edge n-gram search ---
+
+test('edge_ngrams generates correct prefixes for a single word', function () {
+    $tokens = edge_ngrams('Welcome');
+    assert_true(in_array('we',      $tokens), 'missing "we"');
+    assert_true(in_array('wel',     $tokens), 'missing "wel"');
+    assert_true(in_array('welc',    $tokens), 'missing "welc"');
+    assert_true(in_array('welcome', $tokens), 'missing "welcome"');
+    assert_true(!in_array('w',      $tokens), 'single-char token should be excluded (min=2)');
+});
+
+test('search finds seeded document by partial title prefix', function () {
+    // "welco" is an edge n-gram of "Welcome" — should resolve to the seeded doc.
+    $words        = ['welco'];
+    $placeholders = '?';
+    $stmt = db()->prepare("
+        SELECT d.title
+        FROM documents d
+        WHERE d.id IN (
+            SELECT document_id FROM document_search_tokens
+            WHERE token IN ($placeholders)
+            GROUP BY document_id HAVING COUNT(DISTINCT token) >= 1
+        )
+    ");
+    $stmt->execute($words);
+    $row = $stmt->fetch();
+    assert_true($row !== false, 'expected a result for "welco"');
+    assert_true($row['title'] === 'Welcome Packet', 'wrong document: ' . var_export($row['title'], true));
+});
+
+test('search returns no results for a non-matching query', function () {
+    $stmt = db()->prepare("
+        SELECT document_id FROM document_search_tokens WHERE token = ?
+    ");
+    $stmt->execute(['zzznomatch']);
+    $row = $stmt->fetch();
+    assert_true($row === false, 'expected no results for nonsense token');
+});
+
+test('multi-word search requires all words to match (AND logic)', function () {
+    // "welco" AND "pa" must both appear — only "Welcome Packet" satisfies both.
+    $words        = ['welco', 'pa'];
+    $placeholders = implode(',', array_fill(0, count($words), '?'));
+    $stmt = db()->prepare("
+        SELECT d.title
+        FROM documents d
+        WHERE d.id IN (
+            SELECT document_id FROM document_search_tokens
+            WHERE token IN ($placeholders)
+            GROUP BY document_id HAVING COUNT(DISTINCT token) >= " . count($words) . "
+        )
+    ");
+    $stmt->execute($words);
+    $row = $stmt->fetch();
+    assert_true($row !== false, 'expected a result for "welco pa"');
+    assert_true($row['title'] === 'Welcome Packet', 'wrong document');
+});
+
 echo "\n{$pass} passed, {$fail} failed.\n";
 exit($fail > 0 ? 1 : 0);
