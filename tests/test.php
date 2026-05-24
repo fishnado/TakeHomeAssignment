@@ -44,6 +44,59 @@ test('seeded share link resolves to the seeded document', function () {
     assert_true($row['title'] === 'Welcome Packet', 'unexpected title: ' . var_export($row['title'], true));
 });
 
+// --- Audit log ---
+
+test('audit_log records document creation with correct fields', function () {
+    $db = db();
+    $db->prepare('INSERT INTO documents (title, body, created_by) VALUES (?,?,1)')
+       ->execute(['Audit Test Doc', 'body']);
+    $docId = (int) $db->lastInsertId();
+
+    audit_log('create', 'document', $docId, ['title' => 'Audit Test Doc']);
+
+    $stmt = $db->prepare('
+        SELECT * FROM audit_log
+        WHERE entity_type = ? AND entity_id = ? AND action = ?
+    ');
+    $stmt->execute(['document', $docId, 'create']);
+    $log = $stmt->fetch();
+
+    assert_true($log !== false,       'audit log entry not found');
+    assert_true($log['staff_id'] == 1, 'wrong staff_id');
+    assert_true($log['action'] === 'create', 'wrong action');
+    $details = json_decode($log['details'], true);
+    assert_true($details['title'] === 'Audit Test Doc', 'details not recorded');
+});
+
+test('audit_log records share creation with document reference', function () {
+    $db = db();
+    $db->prepare('INSERT INTO documents (title, body, created_by) VALUES (?,?,1)')
+       ->execute(['Share Audit Doc', 'body']);
+    $docId = (int) $db->lastInsertId();
+
+    $token = random_token();
+    $db->prepare('INSERT INTO shares (document_id, token, recipient_email) VALUES (?,?,?)')
+       ->execute([$docId, $token, 'test@example.com']);
+    $shareId = (int) $db->lastInsertId();
+
+    audit_log('create', 'share', $shareId, [
+        'document_id'     => $docId,
+        'recipient_email' => 'test@example.com',
+    ]);
+
+    $stmt = $db->prepare('
+        SELECT * FROM audit_log
+        WHERE entity_type = ? AND entity_id = ? AND action = ?
+    ');
+    $stmt->execute(['share', $shareId, 'create']);
+    $log = $stmt->fetch();
+
+    assert_true($log !== false, 'share audit log entry not found');
+    $details = json_decode($log['details'], true);
+    assert_true($details['document_id'] == $docId,             'document_id missing from details');
+    assert_true($details['recipient_email'] === 'test@example.com', 'recipient_email missing');
+});
+
 // --- Scheduled publishing ---
 
 test('document with future publish_at is not yet available', function () {
